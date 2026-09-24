@@ -29,6 +29,7 @@ export class UsersController {
 
   @Get('me')
   me(@CurrentUser() user: ChatUser) {
+    console.log('user :>> ', user.id);
     return user;
   }
 

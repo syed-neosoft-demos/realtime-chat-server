@@ -6,9 +6,9 @@ import { Public } from '@/common/decorators/public.decorator.js';
 export class AppController {
   constructor(@Inject(AppService) private readonly appService: AppService) {}
 
-  @Get()
+  @Get('health')
   @Public()
-  getHello(): string {
+  getHello(): unknown {
     return this.appService.getHello();
   }
 }
