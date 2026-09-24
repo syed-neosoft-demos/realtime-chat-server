@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { UsersService } from '@/users/users.service.js';
@@ -6,7 +6,7 @@ import { UsersService } from '@/users/users.service.js';
 @Injectable()
 export class AuthService {
   private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
-
+  logger = new Logger('authGourd');
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(UsersService) private readonly users: UsersService,
@@ -33,7 +33,8 @@ export class AuthService {
               ? payload.preferred_username
               : payload.sub,
       };
-    } catch {
+    } catch (err) {
+      this.logger.debug(`JWT verification failed: ${(err as Error).message}`);
       throw new UnauthorizedException('Invalid or expired access token');
     }
     return this.users.findOrCreateFromIdentity(identity.sub, identity.name);

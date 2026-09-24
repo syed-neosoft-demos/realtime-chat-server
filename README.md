@@ -7,7 +7,7 @@ NestJS with Sequelize, PostgreSQL, Keycloak JWT authentication, Socket.IO, and R
 1. Install packages with `npm install`.
 2. Copy the values in `.env.example` into your `.env` and configure PostgreSQL, Redis, and Keycloak. Create the PostgreSQL database named by `DB_NAME` first.
 3. For a new local development database, set `DB_SYNCHRONIZE=true` to create the tables. Synchronization is disabled in production; initial production schema migrations are not included in this scaffold. If upgrading an existing database, apply `migrations/20260924-participant-timestamps.sql` to add participant timestamps; synchronization does not alter existing tables.
-4. Configure your Keycloak realm and an access-token audience mapper for `KEYCLOAK_CLIENT_ID`. The backend verifies RS256 signatures using the realm's JWKS endpoint, plus issuer, audience, expiry, and subject. Users are provisioned locally on their first authenticated request.
+4. Configure your Keycloak realm and an access-token audience mapper for `KEYCLOAK_AUDIENCE` (for example, `chat-api`). This must match an entry in the token's `aud` claim; the requesting client's `azp` claim may differ. If `KEYCLOAK_AUDIENCE` is unset, the backend falls back to `KEYCLOAK_CLIENT_ID`. The backend verifies RS256 signatures using the realm's JWKS endpoint, plus issuer, audience, expiry, and subject. Users are provisioned locally on their first authenticated request.
 5. Run `npm run start:dev` (default port: 3000).
 
 Redis connects lazily when used by typing events or Redis routes. NestJS Observe is optional and enabled only when both `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` are configured. Production startup after `npm run build`: `npm run start:prod`.

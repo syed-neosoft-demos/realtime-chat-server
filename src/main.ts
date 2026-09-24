@@ -1,14 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule, ObserveInstrument } from '@/app.module.js';
+import { AppModule } from '@/app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(
-    AppModule,
-    process.env.OBSERVE_APP_KEY && process.env.OBSERVE_APP_SECRET
-      ? { instrument: ObserveInstrument }
-      : {},
-  );
+  const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }),
   );

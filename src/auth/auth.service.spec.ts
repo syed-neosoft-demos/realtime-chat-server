@@ -5,7 +5,7 @@ import { AuthService } from '@/auth/auth.service.js';
 import type { UsersService } from '@/users/users.service.js';
 
 describe('Keycloak access-token verification', () => {
-  const issuer = 'https://identity.example/realms/chat';
+  const issuer = 'http://localhost:8080/realms/realtime-chat-app';
   const users = { findOrCreateFromIdentity: vi.fn() };
   let keys: Awaited<ReturnType<typeof generateKeyPair>>;
   let auth: AuthService;
@@ -61,9 +61,19 @@ describe('Keycloak access-token verification', () => {
     expect(users.findOrCreateFromIdentity).toHaveBeenCalledWith('keycloak-user', 'Alice');
   });
 
+  it('accepts an audience array containing the API audience with a different authorized party', async () => {
+    await expect(
+      auth.authenticate(
+        await token({ aud: ['chat-backend', 'realm-management', 'account'], azp: 'chat-app' }),
+      ),
+    ).resolves.toEqual({ id: 'local-user' });
+    expect(users.findOrCreateFromIdentity).toHaveBeenCalledWith('keycloak-user', 'Alice');
+  });
+
   it.each([
     { iss: 'https://wrong-issuer.example' },
     { aud: 'another-client' },
+    { aud: ['realm-management', 'account'], azp: 'chat-backend' },
     { exp: 1 },
     { exp: undefined },
     { sub: undefined },
