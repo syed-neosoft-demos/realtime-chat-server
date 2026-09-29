@@ -6,7 +6,7 @@ NestJS with Sequelize, PostgreSQL, Keycloak JWT authentication, Socket.IO, and R
 
 1. Install packages with `npm install`.
 2. Copy the values in `.env.example` into your `.env` and configure PostgreSQL, Redis, and Keycloak. Create the PostgreSQL database named by `DB_NAME` first.
-3. For a new local development database, set `DB_SYNCHRONIZE=true` to create the tables. Synchronization is disabled in production; initial production schema migrations are not included in this scaffold. If upgrading an existing database, apply `migrations/20260924-participant-timestamps.sql` to add participant timestamps; synchronization does not alter existing tables.
+3. For a new local development database, set `DB_SYNCHRONIZE=true` to create the tables. Synchronization is disabled in production; initial production schema migrations are not included in this scaffold. To upgrade the previous application schema, stop the app and apply `migrations/20260929-match-chat-db-flow.sql` once before restarting (see below). Keep `DB_SYNCHRONIZE=false` for existing databases; cyclic foreign-key synchronization can alter tables.
 4. Configure your Keycloak realm and an access-token audience mapper for `KEYCLOAK_AUDIENCE` (for example, `chat-api`). This must match an entry in the token's `aud` claim; the requesting client's `azp` claim may differ. If `KEYCLOAK_AUDIENCE` is unset, the backend falls back to `KEYCLOAK_CLIENT_ID`. The backend verifies RS256 signatures using the realm's JWKS endpoint, plus issuer, audience, expiry, and subject. Users are provisioned locally on their first authenticated request.
 5. Run `npm run start:dev` (default port: 3000).
 
@@ -32,18 +32,26 @@ The original root controller/service remain, and `GET /` is public. Empty extens
 
 ## Schema
 
-The four Sequelize models map camelCase TypeScript properties to the diagram's snake_case columns:
+The four Sequelize models match the `chat_db_flow` diagram and map camelCase TypeScript properties to snake_case columns. The diagram name does not change the PostgreSQL namespace; the application continues to use its existing default schema. PostgreSQL 13+ is required for the built-in `gen_random_uuid()` UUID default (the PostgreSQL equivalent of the diagram’s `UUID()`).
 
-- `chat_users`: UUID primary key and unique Keycloak identity.
-- `conversations`: direct/group type, unique nullable `direct_key`, creator, and last-message metadata.
-- `conversation_participants`: composite `(conversation_id, user_id)` primary key, admin/member role, membership timestamps, last-read pointer, and `created_at` / `updated_at` timestamps.
-- `messages`: UUID primary key, conversation/sender foreign keys, text content, creation/edit/deletion timestamps; soft deletion is enabled and no `updated_at` column is added.
+- `chat_users`: UUID primary key and unique UUID Keycloak identity; display names are `varchar(255)` and nullable avatar URLs are `varchar(500)`.
+- `conversations`: `varchar(20)` type, nullable `varchar(255)` name and `varchar(500)` avatar, unique nullable `varchar(128)` direct key, creator and last-message foreign keys, and indexed nullable `last_message_at`.
+- `conversation_participants`: composite `(conversation_id, user_id)` primary key, indexed `user_id`, `varchar(20)` role defaulting to `member`, `joined_at`, nullable `left_at`, and nullable last-read foreign key. No `created_at` or `updated_at` columns.
+- `messages`: UUID primary key, conversation/sender foreign keys, `varchar(20)` message type defaulting to `text`, required text content, required `created_at`, and nullable `updated_at` / `deleted_at`. `updatedAt` replaces `editedAt` in API responses and is set only on edits. Soft deletion is enabled. The composite index is named `idx_messages_conversation_created` on `(conversation_id, created_at)`.
+
+Required creation timestamps, user/conversation update timestamps, and participant join timestamps have database-level `CURRENT_TIMESTAMP` defaults.
 
 Direct chat keys sort the two local user UUIDs, preventing duplicate pairs. Conversation creation and initial participants are transactional. Sending a message locks its conversation and updates last-message metadata in the same transaction.
 
-`conversations.last_message_id` has a Sequelize association without a database foreign-key constraint to avoid a circular dependency during development schema synchronization. `last_read_message_id` has a foreign-key constraint. Last-read updates are not implemented. Message deletion is soft and updates the conversation’s last-message pointer transactionally; conversation deletion cascades to its messages and participants. The current message type is `text`; attachments require an extension.
+`conversations.last_message_id` and participant `last_read_message_id` both have database foreign-key constraints and are set to null if a referenced message is physically deleted. Sequelize handles the circular conversation/message dependency by creating tables first, then adding constraints. Last-read updates are not implemented. Message deletion is soft and updates the conversation’s last-message pointer transactionally; conversation deletion cascades to its messages and participants. The current message type is `text`; attachments require an extension.
 
-This follows the [NestJS Sequelize integration](https://docs.nestjs.com/data/sequelize) and [Sequelize circular-association guidance](https://sequelize.org/docs/v6/other-topics/constraints-and-circularities/).
+To upgrade an existing database created by the previous models, run this with the application stopped and your PostgreSQL connection configured through standard `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, and `PGDATABASE` environment variables:
+
+```bash
+psql -v ON_ERROR_STOP=1 -f migrations/20260929-match-chat-db-flow.sql
+```
+
+The migration uses the connection's search path. It preserves message edit times by renaming `edited_at` to `updated_at`, converts enum columns to varchar, adds defaults/indexes/the missing foreign key, and removes the two participant timestamps absent from the diagram. It runs in a transaction and rejects oversized values, invalid UUIDs, or orphan last-message references instead of silently changing that data. It is an upgrade script for the previous schema, not an initial schema or a repeatable migration runner.
 
 ## HTTP API
 

@@ -14,7 +14,7 @@ import {
   Unique,
   UpdatedAt,
 } from 'sequelize-typescript';
-import type { NonAttribute } from 'sequelize';
+import { literal, type NonAttribute } from 'sequelize';
 import { ChatUser } from '@/users/models/chat-user.model.js';
 import { Message } from '@/messages/models/message.model.js';
 import { ConversationParticipant } from '@/conversations/models/conversation-participant.model.js';
@@ -24,25 +24,34 @@ export enum ConversationType {
   GROUP = 'group',
 }
 
-@Table({ tableName: 'conversations', underscored: true, timestamps: true })
+@Table({
+  tableName: 'conversations',
+  underscored: true,
+  timestamps: true,
+  indexes: [{ fields: ['last_message_at'] }],
+})
 export class Conversation extends Model<Conversation, Partial<Conversation>> {
   @PrimaryKey
-  @Default(DataType.UUIDV4)
+  @AllowNull(false)
+  @Default(literal('gen_random_uuid()'))
   @Column(DataType.UUID)
   declare id: string;
 
   @AllowNull(false)
-  @Column(DataType.ENUM(...Object.values(ConversationType)))
+  @Column(DataType.STRING(20))
   declare type: ConversationType;
 
+  @AllowNull(true)
   @Column(DataType.STRING(255))
   declare name: string | null;
 
-  @Column(DataType.TEXT)
+  @AllowNull(true)
+  @Column(DataType.STRING(500))
   declare avatarUrl: string | null;
 
   @Unique
-  @Column(DataType.STRING(250))
+  @AllowNull(true)
+  @Column(DataType.STRING(128))
   declare directKey: string | null;
 
   @ForeignKey(() => ChatUser)
@@ -53,21 +62,27 @@ export class Conversation extends Model<Conversation, Partial<Conversation>> {
   @BelongsTo(() => ChatUser, { foreignKey: 'createdBy', onDelete: 'RESTRICT' })
   declare creator: NonAttribute<ChatUser>;
 
+  @ForeignKey(() => Message)
+  @AllowNull(true)
   @Column(DataType.UUID)
   declare lastMessageId: string | null;
 
-  // Avoid a circular dependency when Sequelize creates conversations and messages.
-  @BelongsTo(() => Message, { foreignKey: 'lastMessageId', constraints: false })
+  @BelongsTo(() => Message, { foreignKey: 'lastMessageId', onDelete: 'SET NULL' })
   declare lastMessage: NonAttribute<Message | null>;
 
+  @AllowNull(true)
   @Column(DataType.DATE)
   declare lastMessageAt: Date | null;
 
   @CreatedAt
+  @AllowNull(false)
+  @Default(literal('CURRENT_TIMESTAMP'))
   @Column(DataType.DATE)
   declare createdAt: Date;
 
   @UpdatedAt
+  @AllowNull(false)
+  @Default(literal('CURRENT_TIMESTAMP'))
   @Column(DataType.DATE)
   declare updatedAt: Date;
 

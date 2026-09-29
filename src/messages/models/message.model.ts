@@ -11,7 +11,7 @@ import {
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
-import type { NonAttribute } from 'sequelize';
+import { literal, type NonAttribute } from 'sequelize';
 import { Conversation } from '@/conversations/models/conversation.model.js';
 import { ChatUser } from '@/users/models/chat-user.model.js';
 
@@ -25,11 +25,14 @@ export enum MessageType {
   timestamps: true,
   updatedAt: false,
   paranoid: true,
-  indexes: [{ fields: ['conversation_id', 'created_at'] }],
+  indexes: [
+    { name: 'idx_messages_conversation_created', fields: ['conversation_id', 'created_at'] },
+  ],
 })
 export class Message extends Model<Message, Partial<Message>> {
   @PrimaryKey
-  @Default(DataType.UUIDV4)
+  @AllowNull(false)
+  @Default(literal('gen_random_uuid()'))
   @Column(DataType.UUID)
   declare id: string;
 
@@ -44,7 +47,7 @@ export class Message extends Model<Message, Partial<Message>> {
   declare senderId: string;
 
   @Column({
-    type: DataType.ENUM(...Object.values(MessageType)),
+    type: DataType.STRING(20),
     allowNull: false,
     defaultValue: MessageType.TEXT,
   })
@@ -55,13 +58,18 @@ export class Message extends Model<Message, Partial<Message>> {
   declare content: string;
 
   @CreatedAt
+  @AllowNull(false)
+  @Default(literal('CURRENT_TIMESTAMP'))
   @Column(DataType.DATE)
   declare createdAt: Date;
 
+  // Set only when a message is edited; leave new messages with a null updated_at.
+  @AllowNull(true)
   @Column(DataType.DATE)
-  declare editedAt: Date | null;
+  declare updatedAt: Date | null;
 
   @DeletedAt
+  @AllowNull(true)
   @Column(DataType.DATE)
   declare deletedAt: Date | null;
 

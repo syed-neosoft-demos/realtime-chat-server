@@ -12,7 +12,7 @@ import {
   Unique,
   UpdatedAt,
 } from 'sequelize-typescript';
-import type { NonAttribute } from 'sequelize';
+import { literal, type NonAttribute } from 'sequelize';
 import { ConversationParticipant } from '@/conversations/models/conversation-participant.model.js';
 import { Conversation } from '@/conversations/models/conversation.model.js';
 import { Message } from '@/messages/models/message.model.js';
@@ -20,27 +20,33 @@ import { Message } from '@/messages/models/message.model.js';
 @Table({ tableName: 'chat_users', underscored: true, timestamps: true })
 export class ChatUser extends Model<ChatUser, Partial<ChatUser>> {
   @PrimaryKey
-  @Default(DataType.UUIDV4)
+  @AllowNull(false)
+  @Default(literal('gen_random_uuid()'))
   @Column(DataType.UUID)
   declare id: string;
 
   @Unique
   @AllowNull(false)
-  @Column(DataType.STRING(255))
+  @Column(DataType.UUID)
   declare keycloakUserId: string;
 
   @AllowNull(false)
   @Column(DataType.STRING(255))
   declare displayName: string;
 
-  @Column(DataType.TEXT)
+  @AllowNull(true)
+  @Column(DataType.STRING(500))
   declare avatarUrl: string | null;
 
   @CreatedAt
+  @AllowNull(false)
+  @Default(literal('CURRENT_TIMESTAMP'))
   @Column(DataType.DATE)
   declare createdAt: Date;
 
   @UpdatedAt
+  @AllowNull(false)
+  @Default(literal('CURRENT_TIMESTAMP'))
   @Column(DataType.DATE)
   declare updatedAt: Date;
 

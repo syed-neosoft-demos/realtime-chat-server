@@ -67,6 +67,6 @@ describe('MessagesService authorization', () => {
     const update = vi.fn().mockResolvedValue({ content: 'Changed' });
     repository.findById.mockResolvedValue({ conversationId: 'chat', senderId: 'sender', update });
     await service.edit('message', 'sender', { content: 'Changed' });
-    expect(update).toHaveBeenCalledWith({ content: 'Changed', editedAt: expect.any(Date) });
+    expect(update).toHaveBeenCalledWith({ content: 'Changed', updatedAt: expect.any(Date) });
   });
 });

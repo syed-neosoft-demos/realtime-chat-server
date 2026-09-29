@@ -8,5 +8,6 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(500)
   avatarUrl?: string;
 }

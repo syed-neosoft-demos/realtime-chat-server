@@ -41,6 +41,6 @@ export class MessagesService {
     await this.conversations.assertMember(message.conversationId, userId);
     if (message.senderId !== userId)
       throw new ForbiddenException('Only the sender can edit this message');
-    return message.update({ content: dto.content, editedAt: new Date() });
+    return message.update({ content: dto.content, updatedAt: new Date() });
   }
 }
