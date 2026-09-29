@@ -11,6 +11,7 @@ export class ConversationsRepository {
     @InjectModel(Conversation) private readonly conversations: typeof Conversation,
     @InjectModel(ConversationParticipant)
     private readonly participants: typeof ConversationParticipant,
+
     @InjectConnection() readonly sequelize: Sequelize,
   ) {}
 

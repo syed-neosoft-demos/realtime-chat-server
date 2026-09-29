@@ -3,18 +3,33 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { ForeignKeyConstraintError, Op } from 'sequelize';
 import { ChatUser } from '@/users/models/chat-user.model.js';
 import type { SearchUserDto } from '@/users/dto/search-user.dto.js';
 import type { UpdateUserDto } from '@/users/dto/update-user.dto.js';
+import { UsersRepository } from './users.repository.js';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(ChatUser) private readonly users: typeof ChatUser) {}
+  constructor(
+    @InjectModel(ChatUser) private readonly users: typeof ChatUser,
+    @Inject(UsersRepository)
+    private readonly repository: UsersRepository,
+  ) {}
 
-  search(dto: SearchUserDto) {
+  search(userId: string, dto: SearchUserDto) {
+    return this.repository.searchConversationUsers(userId, dto);
+    // return this.users.findAll({
+    //   where: dto.query ? { displayName: { [Op.iLike]: `%${dto.query}%` } } : {},
+    //   attributes: ['id', 'displayName', 'avatarUrl'],
+    //   limit: dto.limit,
+    //   order: [['displayName', 'ASC']],
+    // });
+  }
+  async listUsers(dto: SearchUserDto) {
     return this.users.findAll({
       where: dto.query ? { displayName: { [Op.iLike]: `%${dto.query}%` } } : {},
       attributes: ['id', 'displayName', 'avatarUrl'],

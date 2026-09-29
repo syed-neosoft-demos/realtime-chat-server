@@ -23,13 +23,12 @@ export class UsersController {
   constructor(@Inject(UsersService) private readonly users: UsersService) {}
 
   @Get()
-  search(@Query() query: SearchUserDto) {
-    return this.users.search(query);
+  search(@Query() query: SearchUserDto, @CurrentUser() user: ChatUser) {
+    return this.users.search(user?.id, query);
   }
 
   @Get('me')
   me(@CurrentUser() user: ChatUser) {
-    console.log('user :>> ', user.id);
     return user;
   }
 

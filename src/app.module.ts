@@ -12,6 +12,9 @@ import { ConversationsModule } from '@/conversations/conversations.module.js';
 import { MessagesModule } from '@/messages/messages.module.js';
 import { ChatModule } from '@/chat/chat.module.js';
 import { RedisModule } from '@/redis/redis.module.js';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
+import { ErrorInterceptor } from './common/interceptors/error.interceptor.js';
 
 @Module({
   imports: [
@@ -28,6 +31,10 @@ import { RedisModule } from '@/redis/redis.module.js';
     RedisModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: ErrorInterceptor },
+  ],
 })
 export class AppModule {}

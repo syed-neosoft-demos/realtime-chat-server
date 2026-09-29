@@ -6,7 +6,7 @@ NestJS with Sequelize, PostgreSQL, Keycloak JWT authentication, Socket.IO, and R
 
 1. Install packages with `npm install`.
 2. Copy the values in `.env.example` into your `.env` and configure PostgreSQL, Redis, and Keycloak. Create the PostgreSQL database named by `DB_NAME` first.
-3. For a new local development database, set `DB_SYNCHRONIZE=true` to create the tables. Synchronization is disabled in production; initial production schema migrations are not included in this scaffold. To upgrade the previous application schema, stop the app and apply `migrations/20260929-match-chat-db-flow.sql` once before restarting (see below). Keep `DB_SYNCHRONIZE=false` for existing databases; cyclic foreign-key synchronization can alter tables.
+3. For a new local development database, set `DB_SYNCHRONIZE=true` to create the tables. Synchronization is disabled in production; initial production schema migrations are not included in this scaffold. To upgrade the previous application schema, stop the app and run `npm run db:migrate` before restarting (see below). Keep `DB_SYNCHRONIZE=false` for existing databases; cyclic foreign-key synchronization can alter tables.
 4. Configure your Keycloak realm and an access-token audience mapper for `KEYCLOAK_AUDIENCE` (for example, `chat-api`). This must match an entry in the token's `aud` claim; the requesting client's `azp` claim may differ. If `KEYCLOAK_AUDIENCE` is unset, the backend falls back to `KEYCLOAK_CLIENT_ID`. The backend verifies RS256 signatures using the realm's JWKS endpoint, plus issuer, audience, expiry, and subject. Users are provisioned locally on their first authenticated request.
 5. Run `npm run start:dev` (default port: 3000).
 
@@ -45,13 +45,24 @@ Direct chat keys sort the two local user UUIDs, preventing duplicate pairs. Conv
 
 `conversations.last_message_id` and participant `last_read_message_id` both have database foreign-key constraints and are set to null if a referenced message is physically deleted. Sequelize handles the circular conversation/message dependency by creating tables first, then adding constraints. Last-read updates are not implemented. Message deletion is soft and updates the conversation’s last-message pointer transactionally; conversation deletion cascades to its messages and participants. The current message type is `text`; attachments require an extension.
 
-To upgrade an existing database created by the previous models, run this with the application stopped and your PostgreSQL connection configured through standard `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, and `PGDATABASE` environment variables:
+To upgrade an existing database created by the previous models:
+
+1. Stop the application and take a database backup using your PostgreSQL administration tool.
+2. Set `DB_SYNCHRONIZE=false` in `.env`. Check that its `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_NAME` point to the database to upgrade.
+3. Run the following from the project root:
 
 ```bash
-psql -v ON_ERROR_STOP=1 -f migrations/20260929-match-chat-db-flow.sql
+npm run db:migrate:status
+npm run db:migrate
+npm run db:migrate:status
+npm run start:dev
 ```
 
-The migration uses the connection's search path. It preserves message edit times by renaming `edited_at` to `updated_at`, converts enum columns to varchar, adds defaults/indexes/the missing foreign key, and removes the two participant timestamps absent from the diagram. It runs in a transaction and rejects oversized values, invalid UUIDs, or orphan last-message references instead of silently changing that data. It is an upgrade script for the previous schema, not an initial schema or a repeatable migration runner.
+The [Sequelize CLI](https://sequelize.org/docs/v6/other-topics/migrations/) reads `.sequelizerc.cjs` (CommonJS for compatibility with this ESM project), loads the connection from `config/sequelize.cjs`, and records completed migrations in `SequelizeMeta`. The status changes from `down` to `up`; later migration runs skip completed files. This metadata table is additional to the four application tables. The CLI loads `.env` using Node's built-in `process.loadEnvFile` (Node 20.12+); explicitly exported environment variables take precedence. Production deployments can use `npm run db:migrate -- --env production` with the CLI installed.
+
+`migrations/20260929000000-match-chat-db-flow.cjs` upgrades the previous schema; it does not initialize an empty database. It preserves message edit times by renaming `edited_at` to `updated_at`, converts enum columns to varchar, adds defaults/indexes/the missing foreign key, and removes the two participant timestamps absent from the diagram. PostgreSQL-specific DDL runs inside a Sequelize-managed transaction; invalid UUIDs, oversized values, or orphan last-message references cause the schema changes to roll back. Keep automatic synchronization disabled afterward.
+
+This replaces the manual SQL script. If that script has already been applied, do not run this upgrade again without first reconciling migration history with the actual database schema. This migration deliberately rejects `db:migrate:undo` because the removed participant timestamp values cannot be recovered; reverting requires the pre-migration backup.
 
 ## HTTP API
 

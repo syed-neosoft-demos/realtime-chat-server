@@ -1,7 +1,10 @@
--- Upgrade the previous application schema. Run once, before starting the updated app.
--- Uses the connection's search_path (public by default).
-BEGIN;
-
+// Upgrade tables created by the previous Sequelize models.
+// All schema changes roll back together if any statement fails.
+module.exports = {
+  async up(queryInterface) {
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await queryInterface.sequelize.query(
+        `
 -- Reject oversized existing values instead of silently truncating them.
 DO $$
 BEGIN
@@ -62,5 +65,16 @@ CREATE INDEX idx_messages_conversation_created ON messages (conversation_id, cre
 DROP TYPE IF EXISTS enum_conversations_type;
 DROP TYPE IF EXISTS enum_messages_message_type;
 DROP TYPE IF EXISTS enum_conversation_participants_role;
+      `,
+        { transaction },
+      );
+    });
+  },
 
-COMMIT;
+  async down() {
+    // The removed participant timestamps cannot be reconstructed accurately.
+    throw new Error(
+      'This migration removes participant timestamp data and cannot be safely undone. Restore the pre-migration database backup to revert it.',
+    );
+  },
+};
